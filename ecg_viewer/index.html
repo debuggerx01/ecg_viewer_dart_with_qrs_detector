@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ECG Viewer</title>
+    <script type="text/javascript" src="echarts.min.js"></script>
+    <style>
+        .container {
+            margin: auto;
+            width: 80vw;
+            height: 60vw;
+        }
+
+        #heart {
+            position: fixed;
+            top: 0;
+            right: 1em;
+            color: pink;
+        }
+
+        #heart span {
+            font-size: 5em;
+        }
+
+    </style>
+</head>
+<body>
+<div id="container" class="container"></div>
+<div id="heart"><span>💗</span></div>
+</body>
+<script>
+    const showLength = 1000;
+    const container = document.getElementById('container');
+    const heart = document.getElementById('heart');
+    const myChart = echarts.init(container);
+    const _data = [];
+    for (let i = 0; i < showLength; i++) {
+        _data[i] = [i, null];
+    }
+    let option = {
+        title: {
+            text: 'ECG Viewer'
+        },
+        xAxis: {
+            type: "value",
+        },
+        yAxis: {
+            type: "value",
+            max: -3.5,
+            min: -7,
+        },
+        series: [{
+            type: 'line',
+            data: _data,
+            smooth: false,
+            showSymbol: false,
+            itemStyle: {
+                normal: {
+                    color: "black",
+                    label:
+                        {
+                            show: true,
+                        },
+                },
+            },
+        }]
+    };
+    myChart.setOption(option);
+    let _index = 0;
+
+    let ws = new WebSocket('ws://127.0.0.1:9988');
+    ws.onmessage = ev => {
+        if (ev.data === 'beat') {
+            heart.style.color = 'red';
+            setTimeout(() => {
+                heart.style.color = 'pink';
+            }, 100);
+        } else {
+            _data[_index] = [_index, ev.data];
+            let __index;
+            for (let i = 1; i < 20; i++) {
+                __index = (_index + i) % showLength;
+                _data[__index] = [__index, null];
+            }
+            _index++;
+            if (_index >= showLength - 1)
+                _index = 0;
+            if (_index % 3 === 0) {
+                option.series.data = _data;
+                myChart.setOption(option)
+            }
+        }
+    }
+
+    window.onresize = myChart.resize;
+
+</script>
+</html>
