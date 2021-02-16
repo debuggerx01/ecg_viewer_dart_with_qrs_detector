@@ -13,10 +13,12 @@ Future sendData(WebSocket webSocket) {
       });
 
   var file = File('data.txt');
+  var timeStamp = 0;
   return file.readAsLines().then((value) {
     return value.forEach((ele) {
       webSocket.add(ele);
-      detector.addPoint(0, double.tryParse(ele));
+      timeStamp += 4000;
+      detector.addPoint(timeStamp, double.tryParse(ele));
       sleep(Duration(milliseconds: 1000 ~/ SAMPLING_RATE));
     });
   });

@@ -38,15 +38,22 @@ class QRSDetector {
       _mostRecentMeasurements.removeFirst();
   }
 
-  int timeStamp;
+  int _lastDetectedTimeStamp = 0;
 
   void addPoint(int timeStamp, double point) {
-    this.timeStamp = timeStamp;
+    var _start = DateTime.now().microsecondsSinceEpoch;
     _addToMostRecentMeasurements(point);
-    _detectPeaks();
+    var detected = _detectPeaks();
+    if (detected) {
+      // print(DateTime.now().microsecondsSinceEpoch - _start);
+
+      print(
+          'Heart beat rate: ${60 * 1000 * 1000 ~/ (timeStamp - _lastDetectedTimeStamp)}/min');
+      _lastDetectedTimeStamp = timeStamp;
+    }
   }
 
-  void _detectPeaks() async {
+  bool _detectPeaks() {
     /// Measurements filtering - 0-15 Hz band pass filter.
     List<double> filteredEcgMeasurements = _bandPassFilter();
 
@@ -73,7 +80,7 @@ class QRSDetector {
         detectedPeaksIndices.length,
         (index) => integratedEcgMeasurements[detectedPeaksIndices[index]]);
 
-    _detectQrs(detectedPeaksValues);
+    return _detectQrs(detectedPeaksValues);
   }
 
   List<double> _bandPassFilter() {
@@ -122,12 +129,14 @@ class QRSDetector {
   int _samplesSinceLastDetectedQrs = 0;
   double _thresholdValue = 0.0;
 
-  void _detectQrs(List<double> detectedPeaksValues) {
+  bool _detectQrs(List<double> detectedPeaksValues) {
+    bool detected = false;
     _samplesSinceLastDetectedQrs += 1;
     if (_samplesSinceLastDetectedQrs > REFRACTORY_PERIOD) {
       if (detectedPeaksValues.length > 0) {
         if (detectedPeaksValues.last > _thresholdValue) {
           handleDetection?.call();
+          detected = true;
           _samplesSinceLastDetectedQrs = 0;
           _qrsPeakValue = QRS_PEAK_FILTERING_FACTOR * detectedPeaksValues.last +
               (1 - QRS_PEAK_FILTERING_FACTOR) * _qrsPeakValue;
@@ -140,5 +149,6 @@ class QRSDetector {
             QRS_NOISE_DIFF_WEIGHT * (_qrsPeakValue - _noisePeakValue);
       }
     }
+    return detected;
   }
 }
