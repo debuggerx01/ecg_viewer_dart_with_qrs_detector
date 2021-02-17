@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'package:iirjdart/butterworth.dart';
 import 'package:scidart/numdart.dart';
 import 'package:scidart/scidart.dart' hide findPeaks;
+import 'dart:math' show pow;
 
 const NUMBER_OF_SAMPLES_STORED = 200;
 
@@ -23,12 +24,18 @@ class QRSDetector {
   final int signalFrequency;
   final double findPeaksLimit;
   final Function handleDetection;
+  Butterworth butter;
 
   QRSDetector({
     this.signalFrequency = 250,
     this.findPeaksLimit = 0.04,
     this.handleDetection,
-  });
+  }) {
+    double nyquistFreq = signalFrequency / 2;
+    butter = Butterworth();
+    butter.lowPass(1, 2, FILTER_LOW_CUT / nyquistFreq);
+    butter.highPass(1, 2, FILTER_HIGH_CUT / nyquistFreq);
+  }
 
   DoubleLinkedQueue<double> _mostRecentMeasurements = DoubleLinkedQueue();
 
@@ -45,7 +52,7 @@ class QRSDetector {
     _addToMostRecentMeasurements(point);
     var detected = _detectPeaks();
     if (detected) {
-      // print(DateTime.now().microsecondsSinceEpoch - _start);
+      print(DateTime.now().microsecondsSinceEpoch - _start);
 
       print(
           'Heart beat rate: ${60 * 1000 * 1000 ~/ (timeStamp - _lastDetectedTimeStamp)}/min');
@@ -58,23 +65,19 @@ class QRSDetector {
     List<double> filteredEcgMeasurements = _bandPassFilter();
 
     /// Derivative - provides QRS slope information.
-    List<double> differentiatedEcgMeasurements = List.generate(
-        filteredEcgMeasurements.length - 1,
-        (index) =>
-            filteredEcgMeasurements[index + 1] -
-            filteredEcgMeasurements[index]);
-
     /// quaring - intensifies values received in derivative.
-    List<double> squaredEcgMeasurements =
-        differentiatedEcgMeasurements.map((data) => data * data).toList();
+    List<double> squaredEcgMeasurements = List.generate(
+        filteredEcgMeasurements.length - 1,
+        (index) => pow(
+              filteredEcgMeasurements[index + 1] -
+                  filteredEcgMeasurements[index],
+              2,
+            ));
 
     /// Moving-window integration.
     Array integratedEcgMeasurements =
         convolution(Array(squaredEcgMeasurements), ones(INTEGRATION_WINDOW));
     List<int> detectedPeaksIndices = _findPeaks(integratedEcgMeasurements);
-
-    detectedPeaksIndices.removeWhere(
-        (ele) => ele < (NUMBER_OF_SAMPLES_STORED - DETECTION_WINDOW));
 
     List<double> detectedPeaksValues = List.generate(
         detectedPeaksIndices.length,
@@ -83,14 +86,9 @@ class QRSDetector {
     return _detectQrs(detectedPeaksValues);
   }
 
-  List<double> _bandPassFilter() {
-    double nyquistFreq = signalFrequency / 2;
-    Butterworth butter = Butterworth();
-    butter.lowPass(1, 2, FILTER_LOW_CUT / nyquistFreq);
-    butter.highPass(1, 2, FILTER_HIGH_CUT / nyquistFreq);
-    return List.generate(_mostRecentMeasurements.length,
-        (index) => butter.filter(_mostRecentMeasurements.elementAt(index)));
-  }
+  List<double> _bandPassFilter() => List.generate(
+      _mostRecentMeasurements.length,
+      (index) => butter.filter(_mostRecentMeasurements.elementAt(index)));
 
   List<int> _findPeaks(Array data) {
     int len = data.length;
@@ -116,7 +114,8 @@ class QRSDetector {
             (hc.elementAt(i) > ha.elementAt(i));
         if (s == FIND_PEAKS_SPACING - 1 &&
             peakCandidate[i] &&
-            data[i] > findPeaksLimit) {
+            data[i] > findPeaksLimit &&
+            i >= NUMBER_OF_SAMPLES_STORED - DETECTION_WINDOW) {
           ind.add(i);
         }
       }
