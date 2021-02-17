@@ -2,7 +2,6 @@ import 'dart:collection';
 import 'package:iirjdart/butterworth.dart';
 import 'package:scidart/numdart.dart';
 import 'package:scidart/scidart.dart' hide findPeaks;
-import 'dart:math' show pow;
 
 const NUMBER_OF_SAMPLES_STORED = 200;
 
@@ -101,17 +100,14 @@ class QRSDetector {
 
     List<int> ind = [];
     for (var s = 0; s < FIND_PEAKS_SPACING; s++) {
-      var start = FIND_PEAKS_SPACING - s - 1;
-      var hb = x.getRange(start, start + len);
-      start = FIND_PEAKS_SPACING;
-      var hc = x.getRange(start, start + len);
-      start = FIND_PEAKS_SPACING + s + 1;
-      var ha = x.getRange(start, start + len);
+      var startHb = FIND_PEAKS_SPACING - s - 1;
+      var startHc = FIND_PEAKS_SPACING;
+      var startHa = FIND_PEAKS_SPACING + s + 1;
 
       for (var i = 0; i < len; i++) {
         peakCandidate[i] = peakCandidate[i] &&
-            (hc.elementAt(i) > hb.elementAt(i)) &&
-            (hc.elementAt(i) > ha.elementAt(i));
+            (x.elementAt(startHc + i) > x.elementAt(startHb + i)) &&
+            (x.elementAt(startHc + i) > x.elementAt(startHa + i));
         if (s == FIND_PEAKS_SPACING - 1 &&
             peakCandidate[i] &&
             data[i] > findPeaksLimit &&
@@ -131,22 +127,21 @@ class QRSDetector {
   bool _detectQrs(List<double> detectedPeaksValues) {
     bool detected = false;
     _samplesSinceLastDetectedQrs += 1;
-    if (_samplesSinceLastDetectedQrs > REFRACTORY_PERIOD) {
-      if (detectedPeaksValues.length > 0) {
-        if (detectedPeaksValues.last > _thresholdValue) {
-          handleDetection?.call();
-          detected = true;
-          _samplesSinceLastDetectedQrs = 0;
-          _qrsPeakValue = QRS_PEAK_FILTERING_FACTOR * detectedPeaksValues.last +
-              (1 - QRS_PEAK_FILTERING_FACTOR) * _qrsPeakValue;
-        } else {
-          _noisePeakValue =
-              NOISE_PEAK_FILTERING_FACTOR * detectedPeaksValues.last +
-                  (1 - NOISE_PEAK_FILTERING_FACTOR) * _noisePeakValue;
-        }
-        _thresholdValue = _noisePeakValue +
-            QRS_NOISE_DIFF_WEIGHT * (_qrsPeakValue - _noisePeakValue);
+    if (_samplesSinceLastDetectedQrs > REFRACTORY_PERIOD &&
+        detectedPeaksValues.length > 0) {
+      if (detectedPeaksValues.last > _thresholdValue) {
+        handleDetection?.call();
+        detected = true;
+        _samplesSinceLastDetectedQrs = 0;
+        _qrsPeakValue = QRS_PEAK_FILTERING_FACTOR * detectedPeaksValues.last +
+            (1 - QRS_PEAK_FILTERING_FACTOR) * _qrsPeakValue;
+      } else {
+        _noisePeakValue =
+            NOISE_PEAK_FILTERING_FACTOR * detectedPeaksValues.last +
+                (1 - NOISE_PEAK_FILTERING_FACTOR) * _noisePeakValue;
       }
+      _thresholdValue = _noisePeakValue +
+          QRS_NOISE_DIFF_WEIGHT * (_qrsPeakValue - _noisePeakValue);
     }
     return detected;
   }
