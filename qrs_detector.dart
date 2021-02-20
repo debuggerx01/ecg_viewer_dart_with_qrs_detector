@@ -36,7 +36,7 @@ class QRSDetector {
     butter.highPass(1, 2, FILTER_HIGH_CUT / nyquistFreq);
   }
 
-  DoubleLinkedQueue<double> _mostRecentMeasurements = DoubleLinkedQueue();
+  Queue<double> _mostRecentMeasurements = Queue();
 
   void _addToMostRecentMeasurements(double val) {
     _mostRecentMeasurements.add(val);
