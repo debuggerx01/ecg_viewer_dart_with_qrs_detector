@@ -16,7 +16,7 @@ Future sendData(WebSocket webSocket) {
   var lineIndex = 0;
   return file.readAsLines().then((value) {
     Timer.periodic(Duration(milliseconds: 1000 ~/ SAMPLING_RATE), (timer) {
-      if (webSocket.closeCode != null || lineIndex > value.length)
+      if (webSocket.closeCode != null || lineIndex >= value.length)
         return timer.cancel();
 
       webSocket.add(value[lineIndex]);
