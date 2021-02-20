@@ -30,7 +30,7 @@ class QRSDetector {
     this.handleDetection,
   });
 
-  DoubleLinkedQueue<double> _mostRecentMeasurements = DoubleLinkedQueue();
+  Queue<double> _mostRecentMeasurements = Queue();
 
   void _addToMostRecentMeasurements(double val) {
     _mostRecentMeasurements.add(val);
